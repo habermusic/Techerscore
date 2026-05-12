@@ -2,122 +2,115 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>티처스코어 악보 제작 툴</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>티처스코어 악보 제작 툴 v1.2.7</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
         
-        /* 1. PDF 출력 최적화 (파란색 선택 영역 및 가이드 글씨 완벽 박멸) */
         @page { size: A4; margin: 0; }
         @media print {
             body { background: white !important; margin: 0 !important; padding: 0 !important; }
             #sidebar { display: none !important; }
             #main-area { margin: 0 !important; padding: 0 !important; width: 210mm; }
-            .score-paper { box-shadow: none !important; border: none !important; width: 210mm !important; height: 297mm !important; padding: 20mm !important; }
-            
-            /* 가이드 글씨 제거 */
+            .score-paper { 
+                box-shadow: none !important; border: none !important; 
+                width: 210mm !important; height: 297mm !important; 
+                padding: 15mm 20mm !important; overflow: hidden !important;
+                position: relative;
+            }
             [contenteditable="true"]:empty:before { content: "" !important; display: none !important; }
-            
-            /* [핵심] 파란색 선택 레이어를 인쇄 시 물리적으로 삭제 */
             .measure.selected::before { display: none !important; content: none !important; }
             .measure.selected { background: none !important; background-color: transparent !important; outline: none !important; }
-
-            .staff-line, .measure, .measure::after, .staff-line::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .staff-line, .measure, .measure::after, .staff-line::before, .rehearsal-mark { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
 
-        body { font-family: 'Noto Sans KR', sans-serif; background: #2c3e50; display: flex; margin: 0; padding: 0; }
+        body { font-family: 'Noto Sans KR', sans-serif; background: #2c3e50; display: flex; margin: 0; padding: 0; min-width: 320px; }
         
-        /* 사이드바 UI */
         #sidebar { width: 280px; background: #34495e; color: white; padding: 20px; height: 100vh; position: fixed; overflow-y: auto; box-sizing: border-box; z-index: 100; }
-        
-        /* [수정] 티처스코어 빌더 글씨 색상 주황색으로 변경 */
-        .sidebar-title { font-size: 18px; color: #e67e22; margin-top: 0; margin-bottom: 20px; }
-        
+        .sidebar-title { font-size: 18px; color: #e67e22; margin-top: 0; margin-bottom: 20px; font-weight: 900; }
         .control-btn { width: 100%; padding: 12px; margin-bottom: 10px; background: #e63946; border: none; color: white; font-weight: 700; border-radius: 4px; cursor: pointer; }
         .tool-group { margin-bottom: 20px; border-bottom: 1px solid #5d6d7e; padding-bottom: 15px; }
         .tool-group h3 { font-size: 14px; color: #bdc3c7; margin-bottom: 10px; }
         .symbol-btn { background: #5d6d7e; border: none; color: white; padding: 8px; margin: 2px; cursor: pointer; border-radius: 4px; width: 50px; font-size: 18px; }
-        .num-input { background: #5d6d7e; border: 1px solid #bdc3c7; color: white; padding: 8px; width: 70px; border-radius: 4px; text-align: center; font-size: 16px; }
+        .num-input { background: #5d6d7e; border: 1px solid #bdc3c7; color: white; padding: 8px; width: 60px; border-radius: 4px; text-align: center; font-size: 16px; }
+
+        .shortcut-guide { margin-top: 10px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 12px; line-height: 1.7; color: #ecf0f1; }
+        .shortcut-guide b { color: #f1c40f; display: inline-block; width: 85px; }
 
         #main-area { flex: 1; margin-left: 280px; padding: 40px; display: flex; justify-content: center; overflow-y: auto; }
-        .score-paper { width: 210mm; min-height: 297mm; padding: 20mm; background: #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); box-sizing: border-box; position: relative; display: flex; flex-direction: column; }
+        .score-paper { 
+            width: 210mm; height: 297mm; padding: 20mm; background: #fff; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); box-sizing: border-box; 
+            position: relative; display: flex; flex-direction: column; overflow: hidden;
+        }
 
-        .header-box { border: 2.5px solid #000; padding: 20px; margin-bottom: 80px; display: flex; flex-direction: column; position: relative; min-height: 80px; }
+        .header-box { border: 2.5px solid #000; padding: 20px; margin-bottom: 15px; display: flex; flex-direction: column; position: relative; min-height: 80px; }
         .title { font-size: 32px; font-weight: 900; outline: none; width: 80%; }
         .author { font-size: 18px; color: #333; outline: none; align-self: flex-end; position: absolute; bottom: 15px; right: 20px; text-align: right; }
         
+        .capo-area { 
+            font-size: 15px; font-weight: 700; 
+            margin-top: 1mm; margin-bottom: 15mm; 
+            padding-right: 5px; outline: none; text-align: right; align-self: flex-end; 
+        }
+
         [contenteditable="true"]:empty:before { content: attr(data-placeholder); color: #ccc; font-weight: normal; }
 
-        /* [수치 고정] 악보 줄 및 첫 세로선 */
-        .staff-line { 
-            display: flex; width: 100%; height: 2px; background: #000 !important; 
-            margin-bottom: 110px; position: relative; 
-        }
+        .staff-line { display: flex; width: 100%; height: 2px; background: #000 !important; margin-bottom: 110px; position: relative; }
+        .staff-line::before { content: ''; position: absolute; left: 0px; top: -18px; height: 38px; width: 2px; background: #000 !important; z-index: 20; }
         
-        /* 맨 첫마디 시작 세로줄 절대 고정 */
-        .staff-line::before { 
-            content: ''; position: absolute; left: 0px; top: -18px; 
-            height: 38px; width: 2px; background: #000 !important; z-index: 20; 
+        .measure { flex: 1; position: relative; height: 2px; cursor: pointer; padding: 18px 0 20px 0; margin-top: -18px; }
+        .measure::after { content: ''; position: absolute; right: -2px; top: 0px; height: 38px; width: 2px; background: #000 !important; z-index: 10; }
+        .measure.selected::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 38px; background-color: rgba(52, 152, 219, 0.15) !important; z-index: 1; pointer-events: none; }
+
+        .rehearsal-mark { 
+            position: absolute; top: -52px; left: -5px; 
+            background: #000 !important; color: #fff !important; 
+            min-width: 22px; height: 22px; display: none; align-items: center; justify-content: center; 
+            font-weight: 900; font-size: 12px; outline: none; z-index: 30; padding: 0 6px; border-radius: 4px;
         }
-
-        /* 마디 영역 (높이 38px 절대 준수) */
-        .measure { 
-            flex: 1; position: relative; height: 2px; cursor: pointer; 
-            padding: 18px 0 20px 0; margin-top: -18px; 
-        }
-
-        /* 모든 마디 오른쪽 세로선 */
-        .measure::after { 
-            content: ''; position: absolute; right: -2px; top: 0px; 
-            height: 38px; width: 2px; background: #000 !important; z-index: 10; 
-        }
-
-        /* [재코딩 핵심] 파란색 선택 레이어 (가상 요소 방식) */
-        .measure.selected::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 38px;
-            background-color: rgba(52, 152, 219, 0.15) !important;
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        /* 세로선 종류 및 기호 */
-        .measure.bar-double::after { width: 5px !important; background: none !important; border-left: 2px solid #000; border-right: 2px solid #000; right: -4px; }
-        .measure.bar-end::after { width: 10px !important; background: #000 !important; border-left: 3px solid #fff; right: -8px; }
-
-        .repeat-dot { position: absolute; top: 19px; transform: translateY(-50%); font-size: 20px; font-weight: bold; pointer-events: none; display: none; z-index: 20; }
-        .dot-left { left: 6px; } .dot-right { right: 6px; }
-        .has-dot-left .dot-left { display: block; } .has-dot-right .dot-right { display: block; }
+        .has-rehearsal .rehearsal-mark { display: flex; }
 
         .chord-container { position: absolute; top: -30px; width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); text-align: left; z-index: 5; }
         .chord-slot { padding-left: 5px; color: #000; font-weight: 700; font-size: 19px; outline: none; height: 25px; line-height: 25px; }
-        .lyrics-layer { position: absolute; top: 38px; width: 100%; text-align: left; padding-left: 5px; color: #333; font-size: 16px; outline: none; min-height: 1.2em; white-space: nowrap; z-index: 5; }
+        
+        .lyrics-layer { position: absolute; top: 38px; width: 100%; text-align: left; padding-left: 5px; color: #333; font-size: 16px; outline: none; min-height: 1.2em; line-height: 1.2; }
 
-        .copyright { margin-top: auto; text-align: center; font-size: 14px; color: #7f8c8d; padding-bottom: 10px; width: 100%; }
+        .copyright { 
+            position: absolute; bottom: 10mm; left: 0; text-align: center; 
+            font-size: 9px; color: #bdc3c7; width: 100%; letter-spacing: 1px; 
+        }
+        
+        .repeat-dot { position: absolute; top: 19px; transform: translateY(-50%); font-size: 20px; font-weight: bold; pointer-events: none; display: none; z-index: 20; }
+        .dot-left { left: 6px; } .dot-right { right: 6px; }
+        .has-dot-left .dot-left { display: block; } .has-dot-right .dot-right { display: block; }
+        
+        .measure.bar-double::after { width: 5px !important; background: none !important; border-left: 2px solid #000; border-right: 2px solid #000; right: -4px; }
+        .measure.bar-end::after { width: 10px !important; background: #000 !important; border-left: 3px solid #fff; right: -8px; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h2 class="sidebar-title">티처스코어 빌더</h2>
+    <h2 class="sidebar-title">티처스코어 빌더 v1.2.7</h2>
     <button class="control-btn" onclick="saveAsPdf()">Pdf로 저장</button>
     
     <div class="tool-group">
-        <h3>도돌이표</h3>
+        <h3>기호 및 마크</h3>
+        <button class="symbol-btn" style="width:110px; font-size:14px;" onclick="toggleRehearsal()">리허설 마크</button>
         <button class="symbol-btn" onclick="toggleDot('left')">𝄆</button>
         <button class="symbol-btn" onclick="toggleDot('right')">𝄇</button>
     </div>
 
     <div class="tool-group">
-        <h3>세로줄 종류</h3>
-        <button class="symbol-btn" style="width:70px" onclick="setBar('double')">겹세로</button>
-        <button class="symbol-btn" style="width:70px" onclick="setBar('end')">끝세로</button>
-        <button class="symbol-btn" style="width:70px" onclick="setBar('normal')">보통</button>
+        <h3>세로줄 관리</h3>
+        <button class="symbol-btn" style="width:110px; font-size:14px;" onclick="toggleBar('double')">겹세로줄</button>
+        <button class="symbol-btn" style="width:110px; font-size:14px;" onclick="toggleBar('end')">끝세로줄</button>
     </div>
 
     <div class="tool-group">
-        <h3>가사 크기</h3>
-        <input type="number" id="fontSizeInput" class="num-input" value="16" step="1" onchange="changeFontSize(this.value)"> px
+        <h3>가사 설정</h3>
+        <input type="number" id="fontSizeInput" class="num-input" value="16" onchange="changeFontSize(this.value)"> px
     </div>
 
     <div class="tool-group">
@@ -125,6 +118,16 @@
         <button class="control-btn" style="background:#3498db" onclick="addMeasureBtn()">마디 추가 (+)</button>
         <button class="control-btn" style="background:#e67e22" onclick="deleteMeasureBtn()">현재 마디 삭제 (-)</button>
         <button class="control-btn" style="background:#9b59b6" onclick="toggleLineBreak()">줄바꿈 토글 (Enter)</button>
+    </div>
+
+    <div class="tool-group" style="border:none;">
+        <h3>단축키</h3>
+        <div class="shortcut-guide">
+            <b>Enter</b> 줄바꿈 (마디 선택 시)<br>
+            <b>Space</b> 다음 코드 칸 이동<br>
+            <b>우클릭</b> 마디 추가 (뒤쪽)<br>
+            <b>Shift+우클릭</b> 현재 마디 삭제
+        </div>
     </div>
 </div>
 
@@ -134,18 +137,21 @@
             <div id="scoreTitle" class="title" contenteditable="true" data-placeholder="(제목을 입력하세요)"></div>
             <div id="scoreAuthor" class="author" contenteditable="true" data-placeholder="(작곡가 입력)"></div>
         </div>
+        <div id="capoDisplay" class="capo-area" contenteditable="true" data-placeholder="(Capo 입력)"></div>
+        
         <div id="staff-container">
             <div class="staff-line">
                 <script>
                     function getMeasureHTML() {
+                        const currentSize = document.getElementById('fontSizeInput') ? document.getElementById('fontSizeInput').value : 16;
                         return `
                         <div class="measure" onclick="selectMeasure(this)" oncontextmenu="handleRightClick(event, this)">
-                            <div class="repeat-dot dot-left">:</div>
-                            <div class="repeat-dot dot-right">:</div>
+                            <div class="rehearsal-mark" contenteditable="true" data-placeholder=""></div>
+                            <div class="repeat-dot dot-left">:</div><div class="repeat-dot dot-right">:</div>
                             <div class="chord-container">
                                 <div class="chord-slot" contenteditable="true"></div><div class="chord-slot" contenteditable="true"></div><div class="chord-slot" contenteditable="true"></div><div class="chord-slot" contenteditable="true"></div>
                             </div>
-                            <div class="lyrics-layer" contenteditable="true" data-placeholder="(가사)"></div>
+                            <div class="lyrics-layer" contenteditable="true" data-placeholder="(가사)" style="font-size: ${currentSize}px"></div>
                         </div>`;
                     }
                     for(let i=0; i<4; i++) document.write(getMeasureHTML());
@@ -158,35 +164,57 @@
 
 <script>
     let selectedMeasure = null;
-
-    /* [추가] PDF 저장 시 제목-작곡가로 파일명 자동 설정 기능 */
     function saveAsPdf() {
         const titleText = document.getElementById('scoreTitle').innerText.trim() || "제목없음";
-        const authorText = document.getElementById('scoreAuthor').innerText.trim() || "작곡가미상";
-        
-        // 브라우저의 타이틀을 변경하면 PDF 저장 시 기본 파일명이 됩니다.
+        const authorText = document.getElementById('scoreAuthor').innerText.trim() || "작곡가";
         document.title = `${titleText}-${authorText}`;
         window.print();
     }
-
     function selectMeasure(el) {
         if (selectedMeasure) selectedMeasure.classList.remove('selected');
         selectedMeasure = el;
         selectedMeasure.classList.add('selected');
     }
-
+    function toggleRehearsal() { 
+        if (selectedMeasure) {
+            selectedMeasure.classList.toggle('has-rehearsal');
+            if(selectedMeasure.classList.contains('has-rehearsal')) setTimeout(() => selectedMeasure.querySelector('.rehearsal-mark').focus(), 10);
+        } 
+    }
     function toggleDot(side) { if (selectedMeasure) selectedMeasure.classList.toggle('has-dot-' + side); }
     
-    function setBar(type) {
+    function toggleBar(type) {
         if (!selectedMeasure) return;
-        selectedMeasure.classList.remove('bar-double', 'bar-end');
-        if (type !== 'normal') selectedMeasure.classList.add('bar-' + type);
+        const className = 'bar-' + type;
+        if (selectedMeasure.classList.contains(className)) {
+            selectedMeasure.classList.remove(className);
+        } else {
+            selectedMeasure.classList.remove('bar-double', 'bar-end');
+            selectedMeasure.classList.add(className);
+        }
     }
 
     function changeFontSize(val) {
         document.querySelectorAll('.lyrics-layer').forEach(el => el.style.fontSize = val + 'px');
     }
 
+    function addMeasureBtn() { if (selectedMeasure) selectedMeasure.insertAdjacentHTML('afterend', getMeasureHTML()); }
+    function deleteMeasureBtn() {
+        if (!selectedMeasure) return;
+        const p = selectedMeasure.parentElement;
+        selectedMeasure.remove();
+        if (p.children.length === 0 && document.querySelectorAll('.staff-line').length > 1) p.remove();
+        selectedMeasure = null;
+    }
+    function handleRightClick(e, el) {
+        e.preventDefault();
+        selectMeasure(el);
+        if (e.shiftKey) { deleteMeasureBtn(); } 
+        else {
+            const num = prompt("추가할 마디 수:", "1");
+            if (num > 0) for(let i=0; i<num; i++) el.insertAdjacentHTML('afterend', getMeasureHTML());
+        }
+    }
     function toggleLineBreak() {
         if (!selectedMeasure) return;
         const currentLine = selectedMeasure.parentElement;
@@ -203,45 +231,20 @@
             nextLine.remove();
         }
     }
-
-    function addMeasureBtn() { if (selectedMeasure) selectedMeasure.insertAdjacentHTML('afterend', getMeasureHTML()); }
-    
-    function deleteMeasureBtn() {
-        if (!selectedMeasure) return;
-        const p = selectedMeasure.parentElement;
-        selectedMeasure.remove();
-        if (p.children.length === 0 && document.querySelectorAll('.staff-line').length > 1) p.remove();
-        selectedMeasure = null;
-    }
-
-    function handleRightClick(e, el) {
-        e.preventDefault();
-        selectMeasure(el);
-        if (e.shiftKey) {
-            deleteMeasureBtn();
-        } else {
-            const num = prompt("추가할 마디 수:", "1");
-            if (num > 0) {
-                for(let i=0; i<num; i++) {
-                    el.insertAdjacentHTML('afterend', getMeasureHTML());
-                }
-            }
-        }
-    }
-
     document.addEventListener('keydown', function(e) {
         const active = document.activeElement;
-        if (e.key === 'Enter' && selectedMeasure && active === document.body) {
-            e.preventDefault();
-            toggleLineBreak();
-        }
+        if (e.key === 'Enter' && selectedMeasure && active === document.body) { e.preventDefault(); toggleLineBreak(); }
         if (e.code === 'Space' && active.classList.contains('chord-slot')) {
             e.preventDefault();
             const slots = Array.from(active.parentElement.querySelectorAll('.chord-slot'));
             const i = slots.indexOf(active);
             if (i < 3) slots[i+1].focus();
             else {
-                const nextM = active.closest('.measure').nextElementSibling;
+                let nextM = active.closest('.measure').nextElementSibling;
+                if (!nextM) {
+                    const nextLine = active.closest('.staff-line').nextElementSibling;
+                    if (nextLine) nextM = nextLine.querySelector('.measure');
+                }
                 if (nextM) nextM.querySelector('.chord-slot').focus();
             }
         }
